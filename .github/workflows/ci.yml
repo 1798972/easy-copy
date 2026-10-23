@@ -28,6 +28,8 @@ jobs:
   deb:
     needs: test
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # 建 Release、传附件需要
     steps:
       - uses: actions/checkout@v4
       - name: Build deb
