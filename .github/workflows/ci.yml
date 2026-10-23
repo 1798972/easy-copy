@@ -1,0 +1,53 @@
+# push / PR：静态检查 + 测试；打 v* 标签：构建 deb 并附到 GitHub Release
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system packages (GTK 3 via PyGObject, headless X server)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-gdkpixbuf-2.0 \
+            python3-pytest python3-pyflakes xvfb
+      - name: pyflakes
+        run: python3 -m pyflakes src bin/easy-copy
+      - name: pytest (under Xvfb, GTK needs a display)
+        run: xvfb-run -a python3 -m pytest -q tests
+      - name: Version check (easy-copy version must run without a display)
+        run: ./bin/easy-copy --version
+
+  deb:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build deb
+        run: ./build-deb.sh
+      - name: Tag must match __version__
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          ver="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/easy_copy/__init__.py)"
+          [ "v$ver" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} != v$ver"; exit 1; }
+      - name: Sanity-check the package
+        run: |
+          dpkg-deb --info dist/*.deb
+          dpkg-deb --contents dist/*.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: easy-copy-deb
+          path: dist/*.deb
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.deb
+          body_path: CHANGELOG.md
