@@ -3,6 +3,7 @@
 from gi.repository import Gdk, GLib, Gtk
 
 from ..hotkey import hotkey_label
+from ..i18n import _
 from .widgets import FloatingWindow
 
 
@@ -17,7 +18,7 @@ class HotkeyDialog(FloatingWindow):
     }
 
     def __init__(self, title, current_label, on_apply, validator, parent=None):
-        super().__init__(f"设置快捷键：{title}")
+        super().__init__(_("设置快捷键：{title}").format(title=title))
         self.on_apply = on_apply
         self.validator = validator
         self.binding = None
@@ -26,10 +27,10 @@ class HotkeyDialog(FloatingWindow):
             self.set_modal(True)
             self.set_destroy_with_parent(True)  # 设置窗口关了，弹窗一起关
         self.body.set_spacing(8)
-        self.tip = Gtk.Label(label=f"按下「{title}」的新组合键")
+        self.tip = Gtk.Label(label=_("按下「{title}」的新组合键").format(title=title))
         self.combo = Gtk.Label()
         self._show_combo(current_label)
-        self.status = Gtk.Label(label="当前快捷键")
+        self.status = Gtk.Label(label=_("当前快捷键"))
         self.status.set_line_wrap(True)
         self.status.set_max_width_chars(40)
         self.status.set_justify(Gtk.Justification.CENTER)
@@ -37,10 +38,10 @@ class HotkeyDialog(FloatingWindow):
             self.body.pack_start(w, False, False, 0)
         btns = Gtk.Box(spacing=6)
         btns.set_margin_top(8)
-        cancel = Gtk.Button(label="取消")
+        cancel = Gtk.Button(label=_("取消"))
         cancel.set_can_focus(False)
         cancel.connect("clicked", lambda _b: self.destroy())
-        self.ok_btn = Gtk.Button(label="应用")
+        self.ok_btn = Gtk.Button(label=_("应用"))
         self.ok_btn.set_can_focus(False)
         self.ok_btn.set_sensitive(False)
         self.ok_btn.get_style_context().add_class("suggested-action")
@@ -71,18 +72,18 @@ class HotkeyDialog(FloatingWindow):
         if level == "error":
             self.binding = None
             self.ok_btn.set_sensitive(False)
-            self.ok_btn.set_label("应用")
+            self.ok_btn.set_label(_("应用"))
             self.status.set_markup(f'<span foreground="#c0392b">✖ {esc}</span>')
         elif level == "warn":
             self.binding = binding
             self.ok_btn.set_sensitive(True)
-            self.ok_btn.set_label("仍然应用")
+            self.ok_btn.set_label(_("仍然应用"))
             self.status.set_markup(f'<span foreground="#d35400">⚠ {esc}</span>')
         else:
             self.binding = binding
             self.ok_btn.set_sensitive(True)
-            self.ok_btn.set_label("应用")
-            self.status.set_text("点「应用」或回车生效")
+            self.ok_btn.set_label(_("应用"))
+            self.status.set_text(_("点「应用」或回车生效"))
         return True
 
     def _apply(self, _b=None):

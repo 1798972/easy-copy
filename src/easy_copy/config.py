@@ -13,6 +13,7 @@ TRASH_FILE = DATA_DIR / "trash.json"
 CONFIG_FILE = Path(GLib.get_user_config_dir()) / "easy-copy" / "config.json"
 
 DEFAULTS = {                 # 都能在「设置」窗口里改，存 CONFIG_FILE
+    "language": "auto",              # 界面语言：auto 跟随系统 / zh / en
     "hotkey": "<Super>v",            # 全局：呼出面板
     "hotkey_trash": "",              # 全局：直接呼出回收站（默认不设）
     "key_pin": "<Control>p",         # 面板内：置顶 / 取消置顶

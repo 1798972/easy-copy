@@ -1,5 +1,6 @@
 """Gtk.Application 单实例：命令行分发、托盘、快捷键与设置的落地。"""
 
+import os
 import sys
 
 from gi.repository import Gdk, Gio, Gtk
@@ -12,10 +13,12 @@ from .history import History
 from .hotkey import (FIXED_KEYS, GLOBAL_COMMANDS, GLOBAL_KEYS, GLOBAL_NAMES, PANEL_KEYS,
                      hotkey_acceptable, hotkey_label, normalize_hotkey, panel_key_acceptable,
                      same_binding)
+from .i18n import _, current as current_language, set_language
 from .ui.panel import Panel
 from .ui.settings import SettingsWindow
 from .ui.style import install_css
 from .util import log
+from . import __version__
 
 try:
     import gi
@@ -24,10 +27,7 @@ try:
 except (ValueError, ImportError):
     AppIndicator = None
 
-USAGE = """easy-copy：极简剪贴板历史（Linux Mint / Cinnamon / X11）。
-
-对标 Windows 的 Win+V：后台记录复制过的文本和图片，快捷键弹出面板，
-选中即写回剪贴板并自动粘贴到之前的窗口。
+USAGE_ZH = """easy-copy：极简剪贴板历史（Linux / X11）。
 
 用法：
   easy-copy            启动常驻进程（开机自启用这个）
@@ -37,7 +37,21 @@ USAGE = """easy-copy：极简剪贴板历史（Linux Mint / Cinnamon / X11）。
   easy-copy hotkey     显示当前快捷键
   easy-copy hotkey 'Ctrl+Alt+V'   改快捷键（也可写 '<Control><Alt>v'）；--remove 解除绑定
   easy-copy settings   打开设置窗口
+  easy-copy version    显示版本
   easy-copy quit       退出常驻进程
+"""
+USAGE_EN = """easy-copy: minimal clipboard history for Linux / X11.
+
+Usage:
+  easy-copy            start the daemon (use this for autostart)
+  easy-copy toggle     show / hide the panel (bind this to a hotkey)
+  easy-copy trash      open the recycle bin view
+  easy-copy clear      clear the history (into the recycle bin)
+  easy-copy hotkey     show the current hotkey
+  easy-copy hotkey 'Ctrl+Alt+V'   change it ('<Control><Alt>v' also works); --remove unbinds
+  easy-copy settings   open the settings window
+  easy-copy version    print the version
+  easy-copy quit       stop the daemon
 """
 
 
@@ -52,19 +66,20 @@ class EasyCopyApp(Gtk.Application):
         self.indicator = None
         self.settings_win = None
         self.cfg = load_config()
+        set_language(self.cfg["language"])
 
     @property
     def hotkey(self):
         return self.cfg["hotkey"]
 
     def hotkey_label(self):
-        return hotkey_label(self.hotkey) if self.hotkey else "未绑定快捷键"
+        return hotkey_label(self.hotkey) if self.hotkey else _("未绑定快捷键")
 
     def set_hotkey(self, text, which="hotkey"):
         """改全局快捷键：校验写法 → 注册到桌面 → 存配置。返回 (ok, 说明)。"""
         binding = normalize_hotkey(text)
         if binding is None:
-            return False, f"无法识别或缺少修饰键：{text}（示例：Ctrl+Alt+V 或 <Control><Alt>v，需带 Ctrl / Alt / Super）"
+            return False, _("无法识别或缺少修饰键：{text}（示例：Ctrl+Alt+V 或 <Control><Alt>v，需带 Ctrl / Alt / Super）").format(text=text)
         level, msg = self.validate_key(which, binding)
         if level == "error":
             return False, msg
@@ -73,45 +88,48 @@ class EasyCopyApp(Gtk.Application):
         if not ok:
             return False, msg
         self.update_setting(which, binding)
-        return True, f"「{GLOBAL_KEYS[which]}」" + msg
+        return True, _("「{title}」{msg}").format(title=_(GLOBAL_KEYS[which]), msg=msg)
 
     def remove_hotkey(self, which="hotkey"):
         ok, msg = unregister_hotkey(GLOBAL_NAMES[which])
         if ok:
             self.update_setting(which, "")
-            msg = f"已解除「{GLOBAL_KEYS[which]}」的快捷键"
+            msg = _("已解除「{title}」的快捷键").format(title=_(GLOBAL_KEYS[which]))
         return ok, msg
 
     def validate_key(self, which, binding):
         """返回 (级别, 说明)：error 不能用；warn 可用但可能被别的快捷键抢；ok 没问题。"""
         keyval, mods = Gtk.accelerator_parse(binding)
         if keyval == 0:
-            return "error", "无法识别的组合键"
+            return "error", _("无法识别的组合键")
         if which in GLOBAL_KEYS:
             if not hotkey_acceptable(keyval, mods):
-                return "error", "需要配合 Ctrl / Alt / Super 之一（功能键 F1–F12 可单独用）"
+                return "error", _("需要配合 Ctrl / Alt / Super 之一（功能键 F1–F12 可单独用）")
             for other, title in GLOBAL_KEYS.items():
                 if other != which and self.cfg[other] and same_binding(self.cfg[other], binding):
-                    return "error", f"和「{title}」用了同一组合键"
+                    return "error", _("和「{title}」用了同一组合键").format(title=_(title))
             desk = desktop()
             warn = conflicts(binding, desk) if desk else ""
             if warn:
-                return "warn", f"{warn}，应用后可能不生效，建议换一个"
+                return "warn", _("{warn}，应用后可能不生效，建议换一个").format(warn=warn)
             return "ok", ""
         if not panel_key_acceptable(keyval, mods):
-            return "error", "面板内快捷键要带 Ctrl / Alt / Super，或 Shift + Delete 这类非打印键，否则和打字冲突"
+            return "error", _("面板内快捷键要带 Ctrl / Alt / Super，或 Shift + Delete 这类非打印键，否则和打字冲突")
         for other, title in PANEL_KEYS.items():
             if other != which and same_binding(self.cfg[other], binding):
-                return "error", f"和「{title}」用了同一组合键"
+                return "error", _("和「{title}」用了同一组合键").format(title=_(title))
         name = Gdk.keyval_name(keyval) or ""
         if mods == 0 and name in FIXED_KEYS:
-            return "error", f"{hotkey_label(binding)} 固定用于「{FIXED_KEYS[name]}」"
+            return "error", _("{label} 固定用于「{what}」").format(label=hotkey_label(binding), what=_(FIXED_KEYS[name]))
         return "ok", ""
 
     def update_setting(self, key, value):
         """改一项配置：保存并立即生效。"""
         self.cfg[key] = value
         save_config(self.cfg)
+        if key == "language":
+            set_language(value)
+            self._build_tray_menu()
         if key in ("max_items", "max_trash") and self.history is not None:
             self.history.enforce_limits()
         elif key == "show_tray" and self.indicator is not None:
@@ -141,9 +159,14 @@ class EasyCopyApp(Gtk.Application):
     def do_command_line(self, cmdline):
         args = cmdline.get_arguments()[1:]
         cmd = args[0] if args else "daemon"
+        if cmd in ("version", "--version", "-V"):
+            self._out(cmdline, f"easy-copy {__version__}\n")
+            if not cmdline.get_is_remote():
+                self.quit()
+            return 0
         if cmd == "daemon":
             if cmdline.get_is_remote():
-                self._err(cmdline, "easy-copy 已在运行\n")
+                self._err(cmdline, _("easy-copy 已在运行\n"))
         elif cmd == "toggle":
             self.panel.toggle()
         elif cmd == "show":
@@ -162,7 +185,7 @@ class EasyCopyApp(Gtk.Application):
         elif cmd == "quit":
             self.quit()
         else:
-            self._err(cmdline, USAGE)
+            self._err(cmdline, USAGE_EN if current_language() == "en" else USAGE_ZH)
             return 2
         if cmd == "clear" and not cmdline.get_is_remote():
             self.quit()
@@ -170,12 +193,12 @@ class EasyCopyApp(Gtk.Application):
 
     def _cmd_hotkey(self, cmdline, args):
         if not args:
-            self._out(cmdline, f"当前快捷键：{self.hotkey_label()}（{self.hotkey}）\n"
-                               f"绑定命令：{launcher_command()}\n")
+            self._out(cmdline, _("当前快捷键：{label}（{binding}）\n绑定命令：{command}\n").format(
+                label=self.hotkey_label(), binding=self.hotkey, command=launcher_command()))
             return 0
         if args[0] == "--remove":
             results = [self.remove_hotkey(k) for k in GLOBAL_KEYS if self.cfg[k]]
-            ok, msg = (all(r[0] for r in results), "\n".join(r[1] for r in results)) if results else (True, "没有已绑定的全局快捷键")
+            ok, msg = (all(r[0] for r in results), "\n".join(r[1] for r in results)) if results else (True, _("没有已绑定的全局快捷键"))
         else:
             ok, msg = self.set_hotkey(" ".join(args))
         (self._out if ok else self._err)(cmdline, msg + "\n")
@@ -214,13 +237,18 @@ class EasyCopyApp(Gtk.Application):
         self.indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE if self.cfg["show_tray"]
                                   else AppIndicator.IndicatorStatus.PASSIVE)
         self.indicator.set_title("easy-copy")
+        self._build_tray_menu()
+
+    def _build_tray_menu(self):
+        if self.indicator is None:
+            return
         menu = Gtk.Menu()
         entries = (
-            ("打开面板", lambda _i: self.panel.toggle()),
-            ("回收站", lambda _i: self.panel.popup(view="trash")),
-            ("设置…", lambda _i: self.open_settings()),
-            ("清空历史", lambda _i: self.clear_history()),
-            ("退出", lambda _i: self.quit()),
+            (_("打开面板"), lambda _i: self.panel.toggle()),
+            (_("回收站"), lambda _i: self.panel.popup(view="trash")),
+            (_("设置…"), lambda _i: self.open_settings()),
+            (_("清空历史"), lambda _i: self.clear_history()),
+            (_("退出"), lambda _i: self.quit()),
         )
         first = None
         for label, cb in entries:
@@ -234,4 +262,12 @@ class EasyCopyApp(Gtk.Application):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("version", "--version", "-V"):
+        print(f"easy-copy {__version__}")  # 不启动任何东西
+        return 0
+    session = os.environ.get("XDG_SESSION_TYPE", "").lower()
+    if session == "wayland" and not os.environ.get("DISPLAY"):
+        sys.stderr.write("easy-copy 只支持 X11 会话（Wayland 下拿不到其它程序的剪贴板变化，xdotool 也不工作）。\n"
+                         "easy-copy requires an X11 session; please log in with \"Xorg\" / \"X11\" selected.\n")
+        return 1
     return EasyCopyApp().run(sys.argv)

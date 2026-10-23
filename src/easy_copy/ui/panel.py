@@ -6,6 +6,7 @@ from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, Pango
 
 from ..desktop import active_window_info, run_bg
 from ..hotkey import hotkey_label, key_matches
+from ..i18n import _
 from ..util import fmt_time
 from .style import PIN_ICON, SHADOW_MARGIN
 from .widgets import Thumbnail
@@ -54,24 +55,24 @@ class Panel(Gtk.Window):
         self.view = "main"  # "main" 剪贴板列表 / "trash" 回收站
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         header.get_style_context().add_class("ec-header")
-        self.title = Gtk.Label(label="剪贴板", xalign=0)
+        self.title = Gtk.Label(label=_("剪贴板"), xalign=0)
         self.title.get_style_context().add_class("ec-title")
         header.pack_start(self.title, True, True, 0)
         # 主视图：[回收站][清空]；回收站视图：[返回][清空回收站 / 行内确认]。pack_end 先放的在最右
-        self.btn_trash = self._header_button("回收站", lambda _b: self.switch_view("trash"))
-        self.btn_clear = self._header_button("清空", lambda _b: self.app.clear_history())
-        self.btn_back = self._header_button("返回", lambda _b: self.switch_view("main"))
-        self.btn_purge = self._header_button("清空回收站", lambda _b: self._ask_purge_all())
+        self.btn_trash = self._header_button(_("回收站"), lambda _b: self.switch_view("trash"))
+        self.btn_clear = self._header_button(_("清空"), lambda _b: self.app.clear_history())
+        self.btn_back = self._header_button(_("返回"), lambda _b: self.switch_view("main"))
+        self.btn_purge = self._header_button(_("清空回收站"), lambda _b: self._ask_purge_all())
         self.btn_settings = Gtk.Button.new_from_icon_name("emblem-system-symbolic", Gtk.IconSize.MENU)
         self.btn_settings.set_relief(Gtk.ReliefStyle.NONE)
         self.btn_settings.set_can_focus(False)
-        self.btn_settings.set_tooltip_text("设置")
+        self.btn_settings.set_tooltip_text(_("设置"))
         self.btn_settings.set_valign(Gtk.Align.CENTER)
         self.btn_settings.get_style_context().add_class("ec-hicon")
         self.btn_settings.set_no_show_all(True)
         self.btn_settings.get_child().show()
         self.btn_settings.connect("clicked", lambda _b: self._open_settings())
-        self.purge_confirm = self._confirm_box("确定清空回收站？", "清空",
+        self.purge_confirm = self._confirm_box(_("确定清空回收站？"), _("清空"),
                                                lambda _b: self._purge_all(),
                                                lambda _b: self._cancel_purge_all())
         for w in (self.btn_settings, self.purge_confirm, self.btn_purge, self.btn_back,
@@ -80,7 +81,7 @@ class Panel(Gtk.Window):
         surface.pack_start(header, False, False, 0)
 
         self.search = Gtk.SearchEntry()
-        self.search.set_placeholder_text("搜索…")
+        self.search.set_placeholder_text(_("搜索…"))
         self.search.get_style_context().add_class("ec-search")
         self.search.connect("search-changed", self._on_search_changed)
         self.search.connect("activate", lambda _e: self._activate_selected())
@@ -148,7 +149,7 @@ class Panel(Gtk.Window):
 
     def _update_header(self):
         trash = self.view == "trash"
-        self.title.set_text("回收站" if trash else "剪贴板")
+        self.title.set_text(_("回收站") if trash else _("剪贴板"))
         self.btn_trash.set_visible(not trash)
         self.btn_clear.set_visible(not trash)
         self.btn_back.set_visible(trash)
@@ -175,7 +176,7 @@ class Panel(Gtk.Window):
         label = Gtk.Label(label=question)
         ok = Gtk.Button(label=ok_label)
         ok.get_style_context().add_class("destructive-action")
-        cancel = Gtk.Button(label="取消")
+        cancel = Gtk.Button(label=_("取消"))
         for b, cb in ((ok, on_ok), (cancel, on_cancel)):
             b.set_can_focus(False)
             b.set_valign(Gtk.Align.CENTER)
@@ -280,17 +281,19 @@ class Panel(Gtk.Window):
         if self.view == "trash":
             n = len(self.history.trash)
             self.count_label.set_text(
-                f"回收站 {n}/{cfg['max_trash']} · Enter 恢复 · {k_del} 两次彻底删除 · {k_trash} 返回 · Esc 关闭")
-            empty = "回收站是空的"
+                _("回收站 {n}/{limit} · Enter 恢复 · {k_del} 两次彻底删除 · {k_trash} 返回 · Esc 关闭").format(
+                    n=n, limit=cfg["max_trash"], k_del=k_del, k_trash=k_trash))
+            empty = _("回收站是空的")
         else:
             n = len(self.history.items)
             self.count_label.set_text(
-                f"{n} 条 · Enter 粘贴 · {k_pin} 置顶 · {k_del} 删除 · {k_trash} 回收站 · Esc 关闭")
-            empty = "还没有记录\n复制点什么，再按 " + self.app.hotkey_label()
+                _("{n} 条 · Enter 粘贴 · {k_pin} 置顶 · {k_del} 删除 · {k_trash} 回收站 · Esc 关闭").format(
+                    n=n, k_pin=k_pin, k_del=k_del, k_trash=k_trash))
+            empty = _("还没有记录\n复制点什么，再按 {hotkey}").format(hotkey=self.app.hotkey_label())
         if n == 0:
             self.empty_label.set_text(empty)
         elif not self._visible_rows():
-            self.empty_label.set_text("没有匹配的内容")
+            self.empty_label.set_text(_("没有匹配的内容"))
 
     def _make_row(self, item):
         row = Gtk.ListBoxRow()
@@ -306,8 +309,8 @@ class Panel(Gtk.Window):
         when = fmt_time(item.get("time", 0))
         if item["type"] == "image":
             thumb = self._thumb(item)
-            main = Thumbnail(thumb) if thumb is not None else Gtk.Label(label="（图片文件已丢失）", xalign=0)
-            meta_text = f"{when} · 图片 {item['w']}×{item['h']}"
+            main = Thumbnail(thumb) if thumb is not None else Gtk.Label(label=_("（图片文件已丢失）"), xalign=0)
+            meta_text = _("{when} · 图片 {w}×{h}").format(when=when, w=item["w"], h=item["h"])
         else:
             text = item["text"]
             lines = text.strip("\n").splitlines()
@@ -327,20 +330,21 @@ class Panel(Gtk.Window):
                 main.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
                 main.set_lines(PREVIEW_WRAP_LINES)
                 main.set_ellipsize(Pango.EllipsizeMode.END)
-            meta_text = f"{when} · {len(text)} 字"
+            meta_text = _("{when} · {chars} 字").format(when=when, chars=len(text))
             if n_lines > 1:
-                meta_text = f"{when} · {n_lines} 行 · {len(text)} 字"
+                meta_text = _("{when} · {lines} 行 · {chars} 字").format(when=when, lines=n_lines, chars=len(text))
         main.set_hexpand(True)
         top.pack_start(main, True, True, 0)
 
         if self.view == "trash":
-            meta_text = "删除于 " + fmt_time(item.get("deleted_time", 0)) + meta_text[meta_text.find(" · "):]
-            purge_btn = self._icon_button("window-close-symbolic", "彻底删除",
+            deleted = _("删除于 {when}").format(when=fmt_time(item.get("deleted_time", 0)))
+            meta_text = deleted + meta_text[meta_text.find(" · "):]
+            purge_btn = self._icon_button("window-close-symbolic", _("彻底删除"),
                                           lambda _b, r=row: self._ask_purge(r))
-            restore_btn = self._icon_button("edit-undo-symbolic", "恢复到列表（Enter）",
+            restore_btn = self._icon_button("edit-undo-symbolic", _("恢复到列表（Enter）"),
                                             lambda _b, r=row: self._restore_item(r.item))
             row.actions = (purge_btn, restore_btn)
-            row.confirm = self._confirm_box("彻底删除？", "删除",
+            row.confirm = self._confirm_box(_("彻底删除？"), _("删除"),
                                             lambda _b, r=row: self._purge_row(r),
                                             lambda _b, r=row: self._cancel_purge(r))
             row.confirming = False
@@ -348,10 +352,10 @@ class Panel(Gtk.Window):
             top.pack_end(restore_btn, False, False, 0)
             top.pack_end(row.confirm, False, False, 0)
         else:
-            del_btn = self._icon_button("window-close-symbolic", "删除（进回收站）",
+            del_btn = self._icon_button("window-close-symbolic", _("删除（进回收站）"),
                                         lambda _b, r=row: self._delete_row(r), "ec-del")
             pin_hint = hotkey_label(self.app.cfg["key_pin"])
-            pin_btn = self._icon_button(PIN_ICON, f"取消置顶（{pin_hint}）" if pinned else f"置顶（{pin_hint}）",
+            pin_btn = self._icon_button(PIN_ICON, (_("取消置顶（{key}）") if pinned else _("置顶（{key}）")).format(key=pin_hint),
                                         lambda _b, r=row: self._toggle_pin(r),
                                         "ec-pin", *(["ec-pin-on"] if pinned else []))
             top.pack_end(del_btn, False, False, 0)

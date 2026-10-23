@@ -2,6 +2,8 @@
 
 from gi.repository import Gdk, Gtk
 
+from .i18n import _
+
 HOTKEY_MOD_MASK = (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.MOD1_MASK
                    | Gdk.ModifierType.SUPER_MASK | Gdk.ModifierType.META_MASK | Gdk.ModifierType.HYPER_MASK)
 
@@ -39,7 +41,7 @@ def normalize_hotkey(text):
 
 def hotkey_label(binding):
     if not binding:
-        return "未设置"
+        return _("未设置")
     keyval, mods = Gtk.accelerator_parse(binding)
     return Gtk.accelerator_get_label(keyval, mods) if keyval else binding
 

@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""easy-copy 启动脚本：clone 下来直接运行，或由 install.sh 软链到 ~/.local/bin。"""
+"""easy-copy 启动脚本：clone 下来直接运行、install.sh 软链到 ~/.local/bin，或 deb 装到 /usr/bin。"""
 import importlib.util
 import os
 import sys
 
-if importlib.util.find_spec("easy_copy") is None:  # 没装进 site-packages 时用仓库里的 src/
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "src"))
+if importlib.util.find_spec("easy_copy") is None:
+    here = os.path.dirname(os.path.realpath(__file__))
+    for candidate in (os.path.join(here, "..", "src"), "/usr/lib/easy-copy"):
+        if os.path.isdir(os.path.join(candidate, "easy_copy")):
+            sys.path.insert(0, candidate)
+            break
 
 from easy_copy.app import main  # noqa: E402
 

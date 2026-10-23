@@ -9,6 +9,7 @@ from pathlib import Path
 from gi.repository import Gio, GLib
 
 from .hotkey import hotkey_label, same_binding
+from .i18n import _
 from .util import log
 
 AUTOSTART_FILE = Path(GLib.get_user_config_dir()) / "autostart" / "easy-copy.desktop"
@@ -41,7 +42,8 @@ def set_autostart(enabled):
         return
     AUTOSTART_FILE.parent.mkdir(parents=True, exist_ok=True)
     AUTOSTART_FILE.write_text(
-        "[Desktop Entry]\nType=Application\nName=easy-copy\nComment=剪贴板历史\n"
+        "[Desktop Entry]\nType=Application\nName=easy-copy\n"
+        "Comment=Clipboard history\nComment[zh_CN]=剪贴板历史\n"
         f"Exec={launcher_exe()}\nIcon=edit-paste\nTerminal=false\nNoDisplay=true\n"
         "X-GNOME-Autostart-enabled=true\n", encoding="utf-8")
 
@@ -122,7 +124,7 @@ def conflicts(binding, desk):
         custom_bindings = [(s.get_string("name"), [s.get_string("binding")]) for s in customs]
     for name, bindings in custom_bindings:
         if not name.startswith("easy-copy") and any(same_binding(b, binding) for b in bindings if b):
-            warns.append(f"已被自定义快捷键「{name}」占用")
+            warns.append(_("已被自定义快捷键「{name}」占用").format(name=name))
     for schema in schemas:
         if not _has_schema(schema):
             continue
@@ -130,7 +132,7 @@ def conflicts(binding, desk):
         for key in st.props.settings_schema.list_keys():
             v = st.get_value(key)
             if v.get_type_string() == "as" and any(same_binding(b, binding) for b in v.unpack() if b):
-                warns.append(f"已被系统快捷键 {key} 占用")
+                warns.append(_("已被系统快捷键 {key} 占用").format(key=key))
     return "；".join(warns)
 
 
@@ -138,8 +140,8 @@ def register_hotkey(binding, command, name="easy-copy"):
     """把 command 绑定到 binding（桌面里的条目名为 name），返回 (ok, 说明)。"""
     desk = desktop()
     if desk is None:
-        return False, (f"当前桌面「{os.environ.get('XDG_CURRENT_DESKTOP') or '未知'}」不支持自动注册，"
-                       f"请在系统的键盘快捷键设置里把命令「{command}」绑定到想要的键")
+        return False, _("当前桌面「{desk}」不支持自动注册，请在系统的键盘快捷键设置里把命令「{command}」绑定到想要的键").format(
+            desk=os.environ.get("XDG_CURRENT_DESKTOP") or "?", command=command)
     warn = conflicts(binding, desk)
     if desk == "cinnamon":
         root = Gio.Settings.new(CINNAMON_SCHEMA)
@@ -170,8 +172,8 @@ def register_hotkey(binding, command, name="easy-copy"):
         if path not in paths:
             root.set_strv("custom-keybindings", paths + [path])
     Gio.Settings.sync()
-    msg = f"快捷键已设为 {hotkey_label(binding)}（{binding}）"
-    return True, msg + (f"\n注意：{warn}，可能不生效" if warn else "")
+    msg = _("快捷键已设为 {label}（{binding}）").format(label=hotkey_label(binding), binding=binding)
+    return True, msg + (_("\n注意：{warn}，可能不生效").format(warn=warn) if warn else "")
 
 
 def unregister_hotkey(name="easy-copy"):
@@ -196,9 +198,9 @@ def unregister_hotkey(name="easy-copy"):
         for key in ("name", "command", "binding"):
             st.reset(key)
     else:
-        return False, "当前桌面不支持自动解除，请在系统快捷键设置里手动删除"
+        return False, _("当前桌面不支持自动解除，请在系统快捷键设置里手动删除")
     Gio.Settings.sync()
-    return True, "已解除快捷键绑定"
+    return True, _("已解除快捷键绑定")
 
 
 def launcher_command():
