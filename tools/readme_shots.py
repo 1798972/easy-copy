@@ -18,10 +18,10 @@ os.environ["XDG_DATA_HOME"] = os.path.join(WORK, "data")
 os.environ["XDG_CONFIG_HOME"] = os.path.join(WORK, "cfg")
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
+from easy_copy import config  # noqa: E402  先导入包，让它声明 GTK 版本
+
 import cairo  # noqa: E402
 from gi.repository import Gdk, GLib, Gtk  # noqa: E402
-
-from easy_copy import config  # noqa: E402
 from easy_copy.app import EasyCopyApp  # noqa: E402
 from easy_copy.history import History  # noqa: E402
 from easy_copy.ui.panel import Panel  # noqa: E402
