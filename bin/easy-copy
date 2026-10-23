@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""easy-copy 启动脚本：clone 下来直接运行，或由 install.sh 软链到 ~/.local/bin。"""
+import importlib.util
+import os
+import sys
+
+if importlib.util.find_spec("easy_copy") is None:  # 没装进 site-packages 时用仓库里的 src/
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "src"))
+
+from easy_copy.app import main  # noqa: E402
+
+sys.exit(main())
