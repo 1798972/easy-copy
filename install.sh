@@ -32,10 +32,13 @@ if [[ "${1:-}" == "--uninstall" ]]; then
 fi
 
 for dep in python3 xdotool xprop; do
-  command -v "$dep" >/dev/null || { echo "缺少依赖：$dep（sudo apt install $dep）"; exit 1; }
+  command -v "$dep" >/dev/null || { echo "缺少依赖：$dep（sudo apt install xdotool x11-utils）"; exit 1; }
 done
-python3 -c 'import gi; gi.require_version("Gtk","3.0"); from gi.repository import Gtk' 2>/dev/null \
-  || { echo "缺少 PyGObject GTK3：sudo apt install python3-gi gir1.2-gtk-3.0"; exit 1; }
+python3 -c 'import gi; gi.require_version("Gtk","3.0"); gi.require_version("GdkPixbuf","2.0"); from gi.repository import Gtk, GdkPixbuf; import cairo' 2>/dev/null \
+  || { echo "缺少 PyGObject / GTK3：sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-gdkpixbuf-2.0"; exit 1; }
+python3 -c 'import gi; gi.require_version("AyatanaAppIndicator3","0.1"); from gi.repository import AyatanaAppIndicator3' 2>/dev/null \
+  || echo "提示：没有托盘图标支持，可选安装：sudo apt install gir1.2-ayatanaappindicator3-0.1"
+[ "${XDG_SESSION_TYPE:-}" = "wayland" ] && echo "警告：当前是 Wayland 会话，easy-copy 只在 X11 下工作，请在登录界面选择 Xorg/X11 会话"
 
 mkdir -p "$BIN_DIR" "$(dirname "$AUTOSTART")"
 chmod +x "$HERE/bin/easy-copy"

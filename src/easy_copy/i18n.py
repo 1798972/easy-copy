@@ -38,6 +38,9 @@ EN = {
     "取消": "Cancel", "关闭": "Close", "删除": "Delete", "清空": "Clear", "返回": "Back",
     "设置": "Settings", "设置…": "Settings…", "剪贴板": "Clipboard", "回收站": "Recycle bin",
     "未设置": "Not set", "昨天 %H:%M": "Yesterday %H:%M",
+    # ---- 首次运行
+    "easy-copy 已启动": "easy-copy is running",
+    "按 {hotkey} 呼出面板；托盘图标里有设置": "Press {hotkey} to open the panel; settings are in the tray icon menu",
     # ---- 托盘
     "打开面板": "Open panel", "清空历史": "Clear history", "退出": "Quit",
     # ---- 面板

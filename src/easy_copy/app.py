@@ -3,12 +3,12 @@
 import os
 import sys
 
-from gi.repository import Gdk, Gio, Gtk
+from gi.repository import Gdk, Gio, GLib, Gtk
 
 from .clipboard import ClipboardWatcher
-from .config import APP_ID, load_config, save_config
-from .desktop import (conflicts, desktop, launcher_command, launcher_exe, register_hotkey,
-                      unregister_hotkey)
+from .config import APP_ID, CONFIG_FILE, load_config, save_config
+from .desktop import (autostart_enabled, conflicts, desktop, launcher_command, launcher_exe,
+                      notify, register_hotkey, set_autostart, unregister_hotkey)
 from .history import History
 from .hotkey import (FIXED_KEYS, GLOBAL_COMMANDS, GLOBAL_KEYS, GLOBAL_NAMES, PANEL_KEYS,
                      hotkey_acceptable, hotkey_label, normalize_hotkey, panel_key_acceptable,
@@ -65,6 +65,7 @@ class EasyCopyApp(Gtk.Application):
         self.panel = None
         self.indicator = None
         self.settings_win = None
+        self.first_run = not CONFIG_FILE.exists()
         self.cfg = load_config()
         set_language(self.cfg["language"])
 
@@ -152,6 +153,21 @@ class EasyCopyApp(Gtk.Application):
         self._setup_indicator()
         self.hold()
         log(f"daemon started, {len(self.history.items)} items loaded")
+        if self.first_run:
+            GLib.idle_add(self._first_run_setup)
+
+    def _first_run_setup(self):
+        """第一次启动（还没有配置文件）：注册默认快捷键、开机自启，并通知用户。
+        用 install.sh 装的话这些已由脚本做过；deb 或菜单启动的用户靠这里。"""
+        self.first_run = False
+        save_config(self.cfg)
+        if self.cfg["hotkey"]:
+            ok, msg = register_hotkey(self.cfg["hotkey"], launcher_command(), GLOBAL_NAMES["hotkey"])
+            log(f"first run: {msg}")
+        if not autostart_enabled():
+            set_autostart(True)
+        notify(_("easy-copy 已启动"), _("按 {hotkey} 呼出面板；托盘图标里有设置").format(hotkey=self.hotkey_label()))
+        return False
 
     def do_activate(self):
         pass

@@ -62,6 +62,11 @@ def run_bg(cmd):
     except OSError as e:
         log(f"run {cmd[0]} failed: {e}")
 
+def notify(summary, body):
+    """桌面通知；没有 notify-send 就只记日志。"""
+    run_bg(["notify-send", "--app-name=easy-copy", "--icon=edit-paste", summary, body])
+
+
 def active_window_info():
     """返回 (当前活动窗口 id, 是否终端)。"""
     try:

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=easy-copy
+Name[zh_CN]=easy-copy 剪贴板
+Comment=Clipboard history (Win+V style)
+Comment[zh_CN]=剪贴板历史（Win+V 风格）
+Exec=easy-copy toggle
+Icon=edit-paste
+Terminal=false
+Categories=Utility;
+Keywords=clipboard;history;paste;剪贴板;
+StartupNotify=false
