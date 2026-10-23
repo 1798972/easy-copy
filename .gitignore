@@ -5,3 +5,4 @@ dist/
 build/
 *.deb
 screenshots/*.tmp.png
+CLAUDE.local.md
